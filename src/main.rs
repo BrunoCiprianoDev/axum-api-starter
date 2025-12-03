@@ -1,6 +1,4 @@
 use axum::{Router, routing::get};
-mod model;
-mod service;
 
 #[tokio::main]
 async fn main() {
