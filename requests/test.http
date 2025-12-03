@@ -1,0 +1,9 @@
+### Root da API
+GET http://localhost:3000/
+Accept: text/html
+
+###
+
+### Healthcheck (ping)
+GET http://localhost:3000/user
+Accept: text/plain
