@@ -1,8 +1,8 @@
 use crate::model::user_model::{User, UserForCreation, UserPublic};
 use crate::repository::user_repository::create_user_repository::CreateUserRepository;
 use crate::repository::user_repository::find_user_by_email_repository::FindUserByEmailRepository;
+use crate::util::app_error::AppError;
 use crate::util::encryptor::Encryptor;
-use crate::util::error::app_error::AppError;
 use crate::util::uuid_generator::UuidGenerator;
 use async_trait::async_trait;
 use chrono::Utc;
@@ -22,25 +22,25 @@ pub struct CreateUserServiceImpl {
 #[async_trait]
 impl CreateUserService for CreateUserServiceImpl {
     async fn execute(&self, user_for_creation: UserForCreation) -> Result<UserPublic, AppError> {
+        let user_exists = self
+            .find_user_by_email_repository
+            .execute(user_for_creation.email.clone())
+            .await
+            .map_err(|err| AppError::server_error(err))?;
+
+        if user_exists.is_some() {
+            return Err(AppError::client_error("User with this email already exists".to_string()));
+        }
+
         let user_id = self
             .uuid_generator
             .generate()
-            .map_err(|err| AppError::Internal(format!("UUID error: {}", err)))?;
+        .map_err(|err| AppError::server_error(err))?;
 
         let hashed_password = self
             .encryptor
             .encrypt(&user_for_creation.password)
-            .map_err(|err| AppError::Internal(format!("Encryption error: {}", err)))?;
-
-        let user_exists = self
-            .find_user_by_email_repository
-            .execute(user_for_creation.email.clone())
-            .await              
-            .map_err(|err| AppError::Internal(format!("Repository error: {}", err)))?;
-     
-        if user_exists.is_some() {
-            return Err(AppError::BadRequest("Email already in use".to_string()));
-        }
+        .map_err(|err| AppError::server_error(err))?;
 
         let user = User {
             id: user_id.clone(),
@@ -55,7 +55,7 @@ impl CreateUserService for CreateUserServiceImpl {
             .create_user_repository
             .execute(user)
             .await
-            .map_err(|err| AppError::Internal(format!("Repository error: {}", err)))?;
+        .map_err(|err| AppError::server_error(err))?;
 
         Ok(user_created)
     }
